@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: ads
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d ads"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  aiohttp-basic:
+    build: .
+    ports:
+      - "8080:8080"
+    command: python aiohttp_app.py
+    container_name: aiohttp_basic_api
+    environment:
+      DB_DSN: postgresql+asyncpg://app:app@db:5432/ads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  aiohttp-auth:
+    build: .
+    ports:
+      - "8081:8080"
+    command: python aiohttp_app_with_auth.py
+    container_name: aiohttp_auth_api
+    environment:
+      DB_DSN: postgresql+asyncpg://app:app@db:5432/ads
+      JWT_SECRET: change-me-in-production
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
